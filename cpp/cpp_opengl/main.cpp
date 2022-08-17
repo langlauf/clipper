@@ -24,10 +24,38 @@ ClipType     ct = ctIntersection;
 PolyFillType pft = pftEvenOdd;
 JoinType jt = jtRound;
 bool show_clipping = true;
-Polygons sub, clp, sol;
+Paths sub, clp, sol;
 int VertCount = 5;
 int scale = 10;
 double delta = 0.0;
+
+const LPCWSTR helpText = 
+L"Clipper Demo tips...\n\n"
+L"I - for Intersection operations.\n"
+L"U - for Union operations.\n"
+L"D - for Difference operations.\n"
+L"X - for XOR operations.\n"
+L"------------------------------\n"
+L"Q - Toggle clipping on/off.\n"
+L"------------------------------\n"
+L"E - for EvenOdd fills.\n"
+L"Z - for NonZero fills.\n"
+L"P - for Positive fills.\n"
+L"N - for Negative fills.\n"
+L"------------------------------\n"
+L"nn<ENTER> - number of vertices (3..50).\n"
+L"------------------------------\n"
+L"UP arrow - Expand Solution.\n"
+L"DN arrow - Contract Solution.\n"
+L"LT or RT arrow - Reset Solution.\n"
+L"------------------------------\n"
+L"M - Miter OffsetPolygons.\n"
+L"S - Square OffsetPolygons.\n"
+L"R - Round OffsetPolygons.\n"
+L"------------------------------\n"
+L"SPACE, ENTER or click to refresh.\n"
+L"F1 - to see this help dialog again.\n"
+L"Esc - to quit.\n";
 
 typedef std::vector< GLdouble* > Vectors;
 Vectors vectors;
@@ -77,7 +105,7 @@ void CALLBACK VertexCallback(GLvoid *vertex)
 //------------------------------------------------------------------------------
 
 void CALLBACK CombineCallback(GLdouble coords[3], 
-  GLdouble *data[4], GLfloat weight[4], GLdouble **dataOut )   
+  GLdouble*[4], GLfloat[4], GLdouble **dataOut )   
 {   
   GLdouble *vert = NewVector(coords[0], coords[1]);
 	*dataOut = vert;
@@ -133,7 +161,7 @@ void InitGraphics()
 }
 //------------------------------------------------------------------------------
 
-void MakeRandomPoly(ClipperLib::Polygon &p, int width, int height, int edgeCount)
+void MakeRandomPoly(Path &p, int width, int height, int edgeCount)
 {
 	p.resize(edgeCount);
 	for (int i = 0; i < edgeCount; i++)
@@ -156,7 +184,7 @@ void ResizeGraphics(int width, int height)
 }
 //------------------------------------------------------------------------------
 
-void DrawPolygon(Polygons &pgs, poly_color_type pct)
+void DrawPolygon(Paths &pgs, poly_color_type pct)
 {
 	switch (pct)
 	{
@@ -193,10 +221,10 @@ void DrawPolygon(Polygons &pgs, poly_color_type pct)
 
 	gluTessProperty(tess, GLU_TESS_BOUNDARY_ONLY, GL_FALSE); //GL_FALSE
 	gluTessBeginPolygon(tess, NULL); 
-	for (Polygons::size_type i = 0; i < pgs.size(); ++i)
+	for (Paths::size_type i = 0; i < pgs.size(); ++i)
 	{
 		gluTessBeginContour(tess);
-		for (ClipperLib::Polygon::size_type j = 0; j < pgs[i].size(); ++j)
+		for (Path::size_type j = 0; j < pgs[i].size(); ++j)
 		{
       GLdouble *vert = 
         NewVector((GLdouble)pgs[i][j].X/scale, (GLdouble)pgs[i][j].Y/scale);
@@ -222,11 +250,11 @@ void DrawPolygon(Polygons &pgs, poly_color_type pct)
 
   gluTessProperty(tess, GLU_TESS_WINDING_RULE, GLU_TESS_WINDING_ODD); 
 	gluTessProperty(tess, GLU_TESS_BOUNDARY_ONLY, GL_TRUE);
-	for (Polygons::size_type i = 0; i < pgs.size(); ++i)
+	for (Paths::size_type i = 0; i < pgs.size(); ++i)
 	{
     gluTessBeginPolygon(tess, NULL); 
 		gluTessBeginContour(tess);
-		for (ClipperLib::Polygon::size_type j = 0; j < pgs[i].size(); ++j)
+		for (Path::size_type j = 0; j < pgs[i].size(); ++j)
 		{
 			GLdouble *vert = 
         NewVector((GLdouble)pgs[i][j].X/scale, (GLdouble)pgs[i][j].Y/scale);
@@ -270,8 +298,8 @@ void DrawGraphics()
 	
   DrawPolygon(sub, pctSubject);
 	DrawPolygon(clp, pctClip);
-  if (show_clipping) DrawPolygon(sol, pctSolution);
-
+  if (show_clipping)
+    DrawPolygon(sol, pctSolution);
   wstringstream ss;
   if (!show_clipping)
     ss << L"Clipper Demo - NO CLIPPING"; 
@@ -358,49 +386,21 @@ inline long64 Round(double val)
 //}
 //------------------------------------------------------------------------------
 
-//void SaveToFile(const char *filename, Polygons &pp, double scale = 1)
-//{
-//  ofstream of(filename);
-//  if (!of.is_open()) return;
-//  of << pp.size() << "\n";
-//  for (Polygons::size_type i = 0; i < pp.size(); ++i)
-//  {
-//    of << pp[i].size() << "\n";
-//    if (scale > 1.01 || scale < 0.99) 
-//      of << fixed << setprecision(6);
-//    for (Polygon::size_type j = 0; j < pp[i].size(); ++j)
-//      of << (double)pp[i][j].X /scale << ", " << (double)pp[i][j].Y /scale << ",\n";
-//  }
-//  of.close();
-//}
-//---------------------------------------------------------------------------
-
-void MakePolygonFromInts(int *ints, int size, ClipperLib::Polygon &p)
+void SaveToFile(const char *filename, Paths &pp, double scale = 1)
 {
-  p.clear();
-  p.reserve(size / 2);
-  for (int i = 0; i < size; i +=2)
-    p.push_back(IntPoint(ints[i], ints[i+1]));
-}
-//---------------------------------------------------------------------------
-
-void TranslatePolygon(ClipperLib::Polygon &p, int dx, int dy)
-{
-  for (size_t i = 0; i < p.size(); ++i)
+  ofstream of(filename);
+  if (!of.is_open()) return;
+  of << pp.size() << "\n";
+  for (Paths::size_type i = 0; i < pp.size(); ++i)
   {
-    p[i].X += dx;
-    p[i].Y += dy;
+    of << pp[i].size() << "\n";
+    if (scale > 1.01 || scale < 0.99) 
+      of << fixed << setprecision(6);
+    for (Path::size_type j = 0; j < pp[i].size(); ++j)
+      of << (double)pp[i][j].X /scale << ", " << (double)pp[i][j].Y /scale << ",\n";
   }
+  of.close();
 }
-//---------------------------------------------------------------------------
-
-//void MakePolygonFromIntArray(const int ints[][2], int size, ClipperLib::Polygon &p)
-//{
-//  p.clear();
-//  p.reserve(size / 2);
-//  for (int i = 0; i < size; ++i)
-//    p.push_back(IntPoint(ints[i][0], ints[i][1]));
-//}
 //---------------------------------------------------------------------------
 
 void UpdatePolygons(bool updateSolutionOnly)
@@ -421,13 +421,8 @@ void UpdatePolygons(bool updateSolutionOnly)
 
     sub.resize(1);
     clp.resize(1);
-
-    //int ints[] = {0,0,0, -100,100, -100,100, 0};
-    //int ints2[] = {0, 100, 100, -200,0, -200,100, 100};
-    //MakePolygonFromInts(ints, 8, sub[0]);
-    //TranslatePolygon(sub[0], 100,220);
-    //MakePolygonFromInts(ints2, 8, clp[0]);
-    //TranslatePolygon(sub[1], 100,220);
+    
+ 
     MakeRandomPoly(sub[0], r.right, r.bottom - statusHeight, VertCount);
     MakeRandomPoly(clp[0], r.right, r.bottom - statusHeight, VertCount);
 
@@ -435,11 +430,18 @@ void UpdatePolygons(bool updateSolutionOnly)
     //SaveToFile("clip.txt", clp);
 	}
 
-	c.AddPolygons(sub, ptSubject);
-	c.AddPolygons(clp, ptClip);
-	c.Execute(ct, sol, pft, pft);
-  if (delta != 0.0) 
-    OffsetPolygons(sol,sol,delta,jt);
+  c.AddPaths(sub, ptSubject, true);
+  c.AddPaths(clp, ptClip, true);
+	
+  c.Execute(ct, sol, pft, pft);
+  SaveToFile("solution.txt", sol);
+
+  if (delta != 0.0)
+  {
+    ClipperOffset co;
+    co.AddPaths(sol, jt, etClosedPolygon);
+    co.Execute(sol, delta);
+  }
 
 	InvalidateRect(hWnd, NULL, false); 
 }
@@ -486,41 +488,14 @@ LONG WINAPI MainWndProc (HWND hWnd, UINT uMsg, WPARAM  wParam, LPARAM  lParam)
         return 0;
 
 	  case WM_HELP:
-      MessageBox(hWnd, 
-			  L"Clipper Demo tips...\n\n"
-			  L"I - for Intersection operations.\n"
-			  L"U - for Union operations.\n" 
-			  L"D - for Difference operations.\n"
-			  L"X - for XOR operations.\n" 
-			  L"------------------------------\n" 
-			  L"Q - Toggle clipping on/off.\n" 
-			  L"------------------------------\n" 
-			  L"E - for EvenOdd fills.\n" 
-			  L"Z - for NonZero fills.\n"
-			  L"P - for Positive fills.\n" 
-			  L"N - for Negative fills.\n" 
-			  L"------------------------------\n" 
-			  L"nn<ENTER> - number of vertices (3..50).\n" 
-			  L"------------------------------\n" 
-			  L"UP arrow - Expand Solution.\n" 
-			  L"DN arrow - Contract Solution.\n" 
-			  L"LT or RT arrow - Reset Solution.\n" 
-			  L"------------------------------\n" 
-			  L"M - Miter OffsetPolygons.\n" 
-			  L"S - Square OffsetPolygons.\n" 
-			  L"R - Round OffsetPolygons.\n" 
-			  L"------------------------------\n" 
-			  L"SPACE, ENTER or click to refresh.\n" 
-			  L"F1 - to see this help dialog again.\n"
-			  L"Esc - to quit.\n",
-			  L"Clipper Demo - Help", 0);
+      MessageBox(hWnd, helpText, L"Clipper Demo - Help", 0);
       return 0;
 
     case WM_COMMAND:
       switch(LOWORD(wParam))
       {
-          case 1: PostQuitMessage(0); break; //escape
-          case 98: SendMessage(hWnd, WM_HELP, 0, 0); break;
+          case 1: case 27: PostQuitMessage(0); break; //escape
+          case 98: MessageBox(hWnd, helpText, L"Clipper Demo - Help", 0); break;
           case 99: MessageBox(hWnd, L"After closing this dialog,\ntype the required number of vertices (3-50) then <Enter> ...", L"Clipper Demo", 0);
           case 101: show_clipping = true; ct = ctIntersection; UpdatePolygons(true); break;
           case 102: show_clipping = true; ct = ctUnion; UpdatePolygons(true); break;
@@ -557,7 +532,7 @@ LONG WINAPI MainWndProc (HWND hWnd, UINT uMsg, WPARAM  wParam, LPARAM  lParam)
 //------------------------------------------------------------------------------
 
 int WINAPI WinMain (HINSTANCE hInstance, 
-  HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+  HINSTANCE, LPSTR, int nCmdShow)
 {
 
     const LPCWSTR appname = TEXT("Clipper Demo");
@@ -625,11 +600,11 @@ int WINAPI WinMain (HINSTANCE hInstance,
   UpdateWindow(hWnd);
 
   // Event loop
-    while (true)
+    for (;;)
     {
         if (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE) == TRUE)
         {
-            if (!GetMessage(&msg, NULL, 0, 0)) return TRUE;
+            if (!GetMessage(&msg, NULL, 0, 0)) break;
 
             if (!TranslateAccelerator(hWnd, accel, &msg))
             {
@@ -641,5 +616,6 @@ int WINAPI WinMain (HINSTANCE hInstance,
 	  wglMakeCurrent(NULL, NULL);
     wglDeleteContext(hRC);
     ReleaseDC(hWnd, hDC);
+    return TRUE;
 }
 //------------------------------------------------------------------------------
